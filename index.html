@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MediSync — Unified Patient Timeline</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ============ AUTH SCREEN ============ -->
+  <section id="auth-screen" class="auth-screen">
+    <div class="auth-card">
+      <div class="brand">
+        <span class="brand-mark">M</span>
+        <div>
+          <h1>MediSync</h1>
+          <p class="tagline">One timeline. Every record.</p>
+        </div>
+      </div>
+
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-tab="login">Sign in</button>
+        <button class="auth-tab" data-tab="register">Create account</button>
+      </div>
+
+      <form id="login-form" class="auth-form">
+        <label>Email
+          <input type="email" id="login-email" required autocomplete="username" />
+        </label>
+        <label>Password
+          <input type="password" id="login-password" required autocomplete="current-password" />
+        </label>
+        <button type="submit" class="btn btn-primary">Sign in</button>
+        <p class="hint">Demo login: <code>demo@medisync.local</code> / <code>DemoPass123!</code> (run <code>python seed_demo.py</code> first)</p>
+      </form>
+
+      <form id="register-form" class="auth-form hidden">
+        <label>Full name
+          <input type="text" id="reg-name" required />
+        </label>
+        <label>Email
+          <input type="email" id="reg-email" required autocomplete="username" />
+        </label>
+        <label>Password <span class="muted">(min 8 characters)</span>
+          <input type="password" id="reg-password" required minlength="8" autocomplete="new-password" />
+        </label>
+        <button type="submit" class="btn btn-primary">Create account</button>
+      </form>
+
+      <p id="auth-error" class="error-text hidden"></p>
+    </div>
+  </section>
+
+  <!-- ============ MAIN APP ============ -->
+  <div id="main-app" class="main-app hidden">
+
+    <header class="topbar">
+      <div class="brand brand-sm">
+        <span class="brand-mark">M</span>
+        <h1>MediSync</h1>
+      </div>
+      <div class="topbar-right">
+        <span id="user-name" class="user-name"></span>
+        <button id="logout-btn" class="btn btn-ghost">Sign out</button>
+      </div>
+    </header>
+
+    <div class="layout">
+
+      <!-- ------- Patient list panel ------- -->
+      <aside class="patient-panel">
+        <div class="panel-header">
+          <h2>Patients</h2>
+          <button id="new-patient-btn" class="btn btn-small btn-primary">+ New</button>
+        </div>
+        <input id="patient-search" class="search-input" type="text" placeholder="Search name or MRN…" />
+        <div id="patient-list" class="patient-list"></div>
+      </aside>
+
+      <!-- ------- Detail panel ------- -->
+      <main class="detail-panel">
+
+        <div id="empty-state" class="empty-state">
+          <h2>Select a patient</h2>
+          <p>Choose a patient from the list, or create a new one, to view their unified record timeline.</p>
+        </div>
+
+        <div id="patient-detail" class="patient-detail hidden">
+
+          <div class="patient-header">
+            <div>
+              <h2 id="pd-name"></h2>
+              <p class="pd-meta" id="pd-meta"></p>
+              <p class="pd-allergies" id="pd-allergies"></p>
+            </div>
+            <div class="patient-header-actions">
+              <button id="edit-patient-btn" class="btn btn-ghost btn-small">Edit patient</button>
+              <button id="upload-btn" class="btn btn-primary btn-small">Upload document</button>
+            </div>
+          </div>
+
+          <div id="conflict-banner" class="conflict-banner hidden"></div>
+
+          <nav class="tabs">
+            <button class="tab-btn active" data-tab="timeline-tab">Timeline</button>
+            <button class="tab-btn" data-tab="conflicts-tab">Flags <span id="conflict-count-badge" class="badge hidden">0</span></button>
+            <button class="tab-btn" data-tab="documents-tab">All documents</button>
+          </nav>
+
+          <section id="timeline-tab" class="tab-panel active">
+            <div id="timeline-list" class="timeline-list"></div>
+          </section>
+
+          <section id="conflicts-tab" class="tab-panel">
+            <label class="toggle-row">
+              <input type="checkbox" id="show-resolved-toggle" />
+              Show resolved flags
+            </label>
+            <div id="conflicts-list" class="conflicts-list"></div>
+          </section>
+
+          <section id="documents-tab" class="tab-panel">
+            <div id="documents-list" class="documents-list"></div>
+          </section>
+
+        </div>
+      </main>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODALS ============ -->
+
+<div id="modal-backdrop" class="modal-backdrop hidden">
+
+  <div id="new-patient-modal" class="modal hidden">
+    <h3>New patient</h3>
+    <form id="new-patient-form">
+      <label>Full name <input type="text" id="np-name" required /></label>
+      <label>MRN (medical record number) <input type="text" id="np-mrn" required /></label>
+      <label>Date of birth <input type="date" id="np-dob" /></label>
+      <label>Gender
+        <select id="np-gender">
+          <option value="">Not specified</option>
+          <option value="female">Female</option>
+          <option value="male">Male</option>
+          <option value="other">Other</option>
+        </select>
+      </label>
+      <label>Known allergies <span class="muted">(comma-separated, blank if none known)</span>
+        <input type="text" id="np-allergies" placeholder="e.g. Penicillin, Peanuts" />
+      </label>
+      <label>Notes <textarea id="np-notes" rows="2"></textarea></label>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-close-modal>Cancel</button>
+        <button type="submit" class="btn btn-primary">Create patient</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="edit-patient-modal" class="modal hidden">
+    <h3>Edit patient</h3>
+    <form id="edit-patient-form">
+      <label>Full name <input type="text" id="ep-name" required /></label>
+      <label>Date of birth <input type="date" id="ep-dob" /></label>
+      <label>Gender
+        <select id="ep-gender">
+          <option value="">Not specified</option>
+          <option value="female">Female</option>
+          <option value="male">Male</option>
+          <option value="other">Other</option>
+        </select>
+      </label>
+      <label>Known allergies <span class="muted">(comma-separated)</span>
+        <input type="text" id="ep-allergies" />
+      </label>
+      <label>Notes <textarea id="ep-notes" rows="2"></textarea></label>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-close-modal>Cancel</button>
+        <button type="submit" class="btn btn-primary">Save changes</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="upload-modal" class="modal hidden">
+    <h3>Upload document</h3>
+    <form id="upload-form">
+      <label>Document type
+        <select id="up-type" required>
+          <option value="prescription">Prescription</option>
+          <option value="lab_report">Lab report</option>
+          <option value="consultation_note">Consultation note</option>
+          <option value="scan">Scan / imaging report</option>
+          <option value="discharge_summary">Discharge summary</option>
+          <option value="other">Other</option>
+        </select>
+      </label>
+      <label>Document date <span class="muted">(optional — MediSync will try to detect it from the file if left blank)</span>
+        <input type="date" id="up-date" />
+      </label>
+      <label>File <span class="muted">(PDF, PNG, JPG, TIFF, or TXT — max 20MB)</span>
+        <input type="file" id="up-file" accept=".pdf,.png,.jpg,.jpeg,.tiff,.txt" required />
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-close-modal>Cancel</button>
+        <button type="submit" class="btn btn-primary" id="upload-submit-btn">Upload &amp; process</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="document-modal" class="modal modal-wide hidden">
+    <div id="document-modal-body"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" data-close-modal>Close</button>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
