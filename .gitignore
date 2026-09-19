@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+venv/
+.venv/
+backend/medisync.db
+backend/storage/*
+!backend/storage/.gitkeep
+.DS_Store
